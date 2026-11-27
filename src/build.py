@@ -61,7 +61,9 @@ CSS = """  /* screen entry: objects fade in and rise one by one */
   .pick.on{box-shadow:0 calc(16 * var(--u)) calc(52 * var(--u)) rgba(185,212,197,.72)!important}
   .card{position:absolute;inset:0;background:#fff;box-shadow:var(--sh0)}
   .card .cimg{position:absolute;inset:0;border-radius:inherit;background-repeat:no-repeat}
-  .card.inset .cimg{clip-path:inset(calc(6 * var(--u)) round calc((var(--r) - 6) * var(--u)))}
+  /* cards whose Figma render has the selected stroke baked in: crop 6px and scale the inner area back to full size */
+  .card.inset{overflow:hidden}
+  .card.inset .cimg{clip-path:inset(calc(6 * var(--u)));transform:scale(var(--sx),var(--sy))}
   .card .chk{position:absolute;width:calc(32 * var(--u));height:calc(32 * var(--u));border-radius:50%;
     background:var(--off,#f3efea) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/62% no-repeat;
     transition:background-color .25s ease-out}
@@ -94,7 +96,7 @@ new = """  } else if(ENTER[i]){
       const C=E.C,[ox,oy,W,H]=EBOX[C.src],base=120+E.O.length*110;
       C.cards.forEach(([x,y,w,h,on,inset],k)=>{
         const wr=el('div','lyr k-up');box(wr,x,y,w,h);wr.style.setProperty('--d',(base+k*90)+'ms');wr.style.setProperty('--dur','650ms');
-        const cd=el('div','card pick'+(on?' on':'')+(inset?' inset':''));cd.style.setProperty('--r',C.r);cd.style.setProperty('--sh0',C.sh);
+        const cd=el('div','card pick'+(on?' on':'')+(inset?' inset':''));if(inset){cd.style.setProperty('--sx',w/(w-12));cd.style.setProperty('--sy',h/(h-12));}cd.style.setProperty('--r',C.r);cd.style.setProperty('--sh0',C.sh);
         const ph=el('div','cimg');Object.assign(ph.style,{backgroundImage:`url(${EIMG[C.src]})`,backgroundSize:`${W/w*100}% ${H/h*100}%`,
           backgroundPosition:`${(x-ox)/(W-w)*100}% ${(y-oy)/(H-h)*100}%`});cd.appendChild(ph);
         if(C.chk){const c=el('i','chk');Object.assign(c.style,{left:C.chk[0]/w*100+'%',top:C.chk[1]/h*100+'%'});if(C.chkOff)c.style.setProperty('--off',C.chkOff);cd.appendChild(c);}
