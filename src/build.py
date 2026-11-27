@@ -25,7 +25,7 @@ def webp_size(b: bytes):
     raise ValueError('unknown webp chunk %r' % kind)
 
 
-names = {n for e in ENTER.values() for n in e['L'] + [o[0] if isinstance(o, list) else o for o in e['O']]}
+names = {n for e in ENTER.values() for n in e['L'] + e.get('T', []) + [o[0] if isinstance(o, list) else o for o in e['O']]}
 names |= {e['C']['src'] for e in ENTER.values() if 'C' in e}
 img, box = {}, {}
 for n in sorted(names):
@@ -100,6 +100,7 @@ new = """  } else if(ENTER[i]){
         if(C.chk){const c=el('i','chk');Object.assign(c.style,{left:C.chk[0]/w*100+'%',top:C.chk[1]/h*100+'%'});if(C.chkOff)c.style.setProperty('--off',C.chkOff);cd.appendChild(c);}
         cd.onclick=toggle;wr.appendChild(cd);d.appendChild(wr);});
     }
+    (E.T||[]).forEach(n=>{const im=el('img','ebg');im.src=EIMG[n];im.alt='';pos(n,im);d.appendChild(im);});
     if(E.P) E.P.cards.forEach(([x,y,w,h])=>{const o=el('div','pick ov');o.style.setProperty('--r',E.P.r);box(o,x,y,w,h);o.onclick=toggle;d.appendChild(o);});
   } else {
   const b=el('img');b.src=s.src;b.alt=s.code+' '+s.name;d.appendChild(b);
