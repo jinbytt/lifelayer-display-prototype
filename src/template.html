@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LifeLayer Display — Prototype</title>
+<style>
+  :root{
+    --bg:#0b0b0c; --panel:#141416; --line:#26262a; --text:#ececec; --muted:#8a8a90;
+    --accent:#ff5a1f; --side:280px;
+    /* Figma easing presets */
+    --ease-out:cubic-bezier(0,0,.58,1); --ease-io:cubic-bezier(.42,0,.58,1);
+    --ease-roll:cubic-bezier(.2,.9,.3,1.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;overflow:hidden}
+  .app{display:flex;height:100%}
+  /* sidebar */
+  aside{width:var(--side);flex:none;background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;transition:margin .3s ease}
+  .app.hide-side aside{margin-left:calc(-1 * var(--side))}
+  .side-head{padding:20px 20px 14px;border-bottom:1px solid var(--line)}
+  .side-head b{font-size:15px;letter-spacing:-.01em}
+  .side-head small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+  ol{list-style:none;overflow-y:auto;flex:1;padding:8px}
+  li button{width:100%;display:flex;gap:10px;align-items:baseline;text-align:left;background:none;border:0;
+    color:var(--muted);padding:9px 10px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;line-height:1.35}
+  li button:hover{background:#1c1c20;color:var(--text)}
+  li button .c{flex:none;width:68px;font-variant-numeric:tabular-nums;font-size:11px;letter-spacing:.02em;color:#6a6a70}
+  li button.on{background:#221a16;color:#fff}
+  li button.on .c{color:var(--accent)}
+  li button .t{flex:none;margin-left:auto;font-size:10px;color:var(--accent);opacity:.8}
+  /* stage */
+  main{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-width:0}
+  .frame{position:relative;aspect-ratio:16/9;width:min(100%, calc((100vh - 64px) * 16 / 9));
+    max-height:calc(100vh - 64px);background:#000;box-shadow:0 20px 60px rgba(0,0,0,.6);cursor:pointer;overflow:hidden}
+  .frame.end{cursor:default}
+  /* 1920x1080 design-space stage, scaled to the frame so Figma px values apply as-is */
+  .stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+  .layer,.scr{position:absolute;inset:0;opacity:0;pointer-events:none}
+  .layer.show,.scr.show{opacity:1}
+  .scr img{position:absolute;display:block}
+  .scr img.base{inset:0;width:100%;height:100%}
+  /* Glow/Breathing — Center → Right → Center 2 → Left, 1.8s ease-in-out each (Smart Animate) */
+  .glowbg{background:#000;overflow:hidden}
+  .glow{position:absolute;border-radius:50%;filter:blur(45px);
+    background:linear-gradient(90deg,rgba(242,129,73,.35) 23%,#f56521 36%,#78ad96 75%,rgba(130,163,177,.44) 98%);
+    left:-291px;top:995px;width:2503px;height:195px;
+    animation:breathe 7.2s var(--ease-io) infinite}
+  @keyframes breathe{
+    0%,100%{left:-291px;top:995px;width:2503px;height:195px;opacity:1}
+    25%{left:262px;top:1057px;width:1957px;height:71px;opacity:.35}
+    50%{left:-223px;top:1007px;width:2366px;height:171px;opacity:.9}
+    75%{left:-298px;top:1057px;width:1957px;height:71px;opacity:.35}
+  }
+  /* After-delay reveals (점등 / 라벨) — Smart Animate opacity */
+  .fade{opacity:0}
+  .scr.play .fade{animation:fadeIn var(--d) var(--e) var(--dl) both}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  /* Counter/롤링 숫자 — strip slides 60px per value */
+  .roll{position:absolute;width:72px;height:60px;overflow:hidden}
+  .roll .strip{position:absolute;left:0;top:0;width:72px}
+  .roll .strip>*{position:static;display:block;width:72px;height:60px;text-align:center;line-height:60px;
+    font:700 68px/60px "LG EI Text","Pretendard","Apple SD Gothic Neo",system-ui,sans-serif;letter-spacing:-.02em;color:#000}
+  .scr.play .roll.one .strip{animation:rollOne 550ms var(--ease-roll) var(--dl) both}
+  .scr.play .roll.two .strip{animation:rollTwo 1900ms linear var(--dl) both}
+  @keyframes rollOne{from{transform:translateY(0)}to{transform:translateY(-60px)}}
+  @keyframes rollTwo{
+    0%{transform:translateY(0);animation-timing-function:var(--ease-roll)}
+    28.95%{transform:translateY(-60px);animation-timing-function:linear}
+    71.05%{transform:translateY(-60px);animation-timing-function:var(--ease-roll)}
+    100%{transform:translateY(-120px)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .glow{animation:none}
+    .scr.play .fade,.scr.play .roll .strip{animation-duration:1ms!important;animation-delay:0s!important}
+  }
+  .bar{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;align-items:center;gap:12px;padding:0 20px}
+  .bar button{background:#1b1b1e;border:1px solid var(--line);color:var(--text);height:34px;min-width:34px;padding:0 12px;
+    border-radius:8px;cursor:pointer;font:inherit;font-size:13px}
+  .bar button:hover{border-color:#3a3a40}
+  .bar .info{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .info b{color:var(--text);font-weight:600;margin-right:6px}
+  .progress{flex:1;height:3px;background:#222;border-radius:2px;overflow:hidden;min-width:60px}
+  .progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s ease}
+  .hint{position:absolute;top:14px;right:20px;font-size:12px;color:#5c5c62}
+  .app.full aside,.app.full .bar,.app.full .hint{display:none}
+  .app.full .frame{width:min(100vw, calc(100vh * 16 / 9));max-height:100vh;box-shadow:none}
+  @media (max-width:800px){ aside{position:absolute;z-index:5;height:100%} .app:not(.hide-side) main{opacity:.4} }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside>
+    <div class="side-head"><b>LifeLayer_Display</b><small>상담 디스플레이 프로토타입 · <span id="cnt"></span>개 화면</small></div>
+    <ol id="list"></ol>
+  </aside>
+  <main>
+    <div class="hint">클릭 / → 다음 · ← 이전 · F 전체화면 · R 처음부터</div>
+    <div class="frame" id="frame"><div class="stage" id="stage"></div></div>
+    <div class="bar">
+      <button id="tog" title="화면 목록">☰</button>
+      <button id="prev" title="이전">←</button>
+      <button id="next" title="다음">→</button>
+      <div class="info" id="info"></div>
+      <div class="progress"><i id="prog"></i></div>
+      <button id="restart">처음부터</button>
+      <button id="full">전체화면</button>
+    </div>
+  </main>
+</div>
+<script>
+const A = __ASSETS__;
+const S = __SCREENS__;
+/* Motion spec, taken from the Figma prototype (LifeLayer_Display › contents) */
+const EASE = {out:'var(--ease-out)', io:'var(--ease-io)'};
+const DISSOLVE = {d:250, e:EASE.out}, SMART = {d:400, e:EASE.io}, INSTANT = {d:0, e:EASE.out};
+// outgoing transition per screen when moving forward (Figma reaction on the source frame)
+const OUT = {1:SMART, 2:SMART, 6:INSTANT, 17:INSTANT};
+const GLOW = new Set([0,1,2,3]);            // screens that sit on the black glow background
+const LAYERS = {
+  0:{imgs:[['top00',0,0],['c00',500,281]]},
+  1:{imgs:[['top01',0,0],['c01a',563,0]]},
+  2:{imgs:[['top01',0,0],['c01b',563,0]]},
+  3:{imgs:[['top01',0,0],['c01c',410,0]]},
+  // ST-04 취향 수치 점등: after 1.4/1.6/1.8s, 0.4s ease-out
+  7:{fades:[['pct1',1141,167,1400,400,'out'],['pct2',1141,406,1600,400,'out'],['pct3',1141,645,1800,400,'out']]},
+  // ST-04-1-1 롤링 숫자: 청소년 0→1 @1.2s, 성인 0→1 @2.2s →2 (+0.8s)
+  8:{rolls:[{x:1338,y:647,zero:'teen0',to:1,dl:1200},{x:674,y:787,zero:'adult0',to:2,dl:2200}]},
+  // ST-05 순차 점등 라벨: 0.6s ease-out
+  13:{fades:[['lab1',1117,557,800,600,'out'],['lab2',1272,659,800,600,'out'],['lab3',1352,502,1700,600,'out'],
+             ['lab4',1470,404,2600,600,'out'],['lab5',1545,319,3500,600,'out'],['lab6',1427,178,4400,600,'out']]},
+};
+
+const app=document.getElementById('app'), frame=document.getElementById('frame'), stage=document.getElementById('stage'), list=document.getElementById('list');
+let cur=-1, timer=null, playT=null;
+document.getElementById('cnt').textContent=S.length;
+
+const img=(src,x,y,cls)=>{const im=new Image();im.src=src;im.decoding='async';if(cls)im.className=cls;if(x!=null){im.style.left=x+'px';im.style.top=y+'px';}return im;};
+const glowbg=document.createElement('div'); glowbg.className='layer glowbg';
+const glow=document.createElement('div'); glow.className='glow';
+glow.style.animationDelay=-(performance.now()%7200)+'ms';
+glowbg.appendChild(glow); stage.appendChild(glowbg);
+
+const screens=S.map((s,i)=>{
+  const el=document.createElement('div'); el.className='scr';
+  const L=LAYERS[i]||{};
+  let base=null;
+  if(s.src){ base=img(s.src,null,null,'base'); base.alt=s.code+' '+s.name; el.appendChild(base); }
+  (L.imgs||[]).forEach(([k,x,y])=>el.appendChild(img(A[k],x,y)));
+  (L.fades||[]).forEach(([k,x,y,dl,d,e])=>{const im=img(A[k],x,y,'fade');im.style.setProperty('--dl',dl+'ms');im.style.setProperty('--d',d+'ms');im.style.setProperty('--e',EASE[e]);el.appendChild(im);});
+  (L.rolls||[]).forEach(r=>{
+    const box=document.createElement('div'); box.className='roll '+(r.to===1?'one':'two');
+    box.style.cssText=`left:${r.x}px;top:${r.y}px;--dl:${r.dl}ms`;
+    const strip=document.createElement('div'); strip.className='strip';
+    strip.appendChild(img(A[r.zero]));
+    for(let v=1;v<=r.to;v++){const d=document.createElement('span');d.textContent=v;strip.appendChild(d);}
+    box.appendChild(strip); el.appendChild(box);
+    // cover the baked-in "0" with the card colour sampled from the screen image
+    if(base) base.addEventListener('load',()=>{try{const c=document.createElement('canvas');c.width=c.height=1;const g=c.getContext('2d');
+      g.drawImage(base,r.x+3,r.y+3,1,1,0,0,1,1);const p=g.getImageData(0,0,1,1).data;box.style.background=`rgb(${p[0]},${p[1]},${p[2]})`;}catch(e){}},{once:true});
+  });
+  stage.appendChild(el); return el;
+});
+
+function fit(){ stage.style.transform=`scale(${frame.clientWidth/1920})`; }
+new ResizeObserver(fit).observe(frame); fit();
+
+const btns=S.map((s,i)=>{
+  const li=document.createElement('li'), b=document.createElement('button');
+  b.innerHTML='<span class="c">'+s.code+'</span><span>'+s.name+'</span>'+(s.auto?'<span class="t">AUTO</span>':'');
+  b.onclick=()=>go(i); li.appendChild(b); list.appendChild(li); return b;
+});
+
+function go(i){
+  if(i<0||i>=S.length||i===cur) return;
+  const from=cur;
+  const tr = from<0 ? INSTANT : (i===from+1 ? (OUT[from]||DISSOLVE) : DISSOLVE);
+  clearTimeout(timer); clearTimeout(playT);
+  const t=`opacity ${tr.d}ms ${tr.e}`;
+  screens.forEach(s=>s.style.transition=t); glowbg.style.transition=t;
+  if(from>=0){ screens[from].classList.remove('show'); btns[from].classList.remove('on');
+    setTimeout(()=>{ if(cur!==from) screens[from].classList.remove('play'); }, tr.d); }
+  cur=i;
+  const el=screens[i]; el.classList.remove('play'); void el.offsetWidth;
+  el.classList.add('show'); glowbg.classList.toggle('show', GLOW.has(i));
+  // Figma "after delay" timers start once the incoming transition has finished
+  playT=setTimeout(()=>el.classList.add('play'), tr.d);
+  btns[i].classList.add('on'); btns[i].scrollIntoView({block:'nearest'});
+  document.getElementById('info').innerHTML='<b>'+S[i].code+'</b>'+S[i].name+' · '+(i+1)+' / '+S.length;
+  document.getElementById('prog').style.width=((i+1)/S.length*100)+'%';
+  frame.classList.toggle('end', i===S.length-1);
+  if(S[i].auto) timer=setTimeout(()=>go(i+1), tr.d+S[i].auto);
+  try{ history.replaceState(null,'','#s'+(i+1)); }catch(e){}
+}
+const next=()=>go(cur+1), prev=()=>go(cur-1);
+frame.onclick=next;
+document.getElementById('next').onclick=next;
+document.getElementById('prev').onclick=prev;
+document.getElementById('restart').onclick=()=>{ const c=cur; cur=-1; if(c>=0){screens[c].classList.remove('show','play');btns[c].classList.remove('on');} go(0); };
+document.getElementById('tog').onclick=()=>app.classList.toggle('hide-side');
+function toggleFull(){
+  app.classList.toggle('full');
+  if(app.classList.contains('full')){ document.documentElement.requestFullscreen?.().catch(()=>{}); }
+  else if(document.fullscreenElement){ document.exitFullscreen?.(); }
+}
+document.getElementById('full').onclick=toggleFull;
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement) app.classList.remove('full'); });
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight',' ','Enter','PageDown'].includes(e.key)){e.preventDefault();next();}
+  else if(['ArrowLeft','PageUp','Backspace'].includes(e.key)){e.preventDefault();prev();}
+  else if(e.key==='f'||e.key==='F') toggleFull();
+  else if(e.key==='r'||e.key==='R') document.getElementById('restart').click();
+  else if(e.key==='Escape') app.classList.remove('full');
+});
+const fromHash=()=>{const m=location.hash.match(/^#s(\d+)$/);return m?Math.min(S.length,Math.max(1,+m[1]))-1:0;};
+window.addEventListener('hashchange',()=>go(fromHash()));
+go(fromHash());
+</script>
+</body>
+</html>
