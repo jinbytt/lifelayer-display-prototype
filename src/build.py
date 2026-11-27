@@ -64,7 +64,7 @@ CSS = """  /* screen entry: objects fade in and rise one by one */
   /* cards whose Figma render has the selected stroke baked in: crop 6px and scale the inner area back to full size */
   .card.inset{overflow:hidden}
   .card.inset .cimg{clip-path:inset(calc(6 * var(--u)));transform:scale(var(--sx),var(--sy))}
-  .card .chk{position:absolute;width:calc(32 * var(--u));height:calc(32 * var(--u));border-radius:50%;
+  .card .chk{position:absolute;width:calc(34 * var(--u));height:calc(34 * var(--u));border-radius:50%;
     background:var(--off,#f3efea) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/62% no-repeat;
     transition:background-color .25s ease-out}
   .card.on .chk{background-color:#e7481c}
@@ -99,7 +99,7 @@ new = """  } else if(ENTER[i]){
         const cd=el('div','card pick'+(on?' on':'')+(inset?' inset':''));if(inset){cd.style.setProperty('--sx',w/(w-12));cd.style.setProperty('--sy',h/(h-12));}cd.style.setProperty('--r',C.r);cd.style.setProperty('--sh0',C.sh);
         const ph=el('div','cimg');Object.assign(ph.style,{backgroundImage:`url(${EIMG[C.src]})`,backgroundSize:`${W/w*100}% ${H/h*100}%`,
           backgroundPosition:`${(x-ox)/(W-w)*100}% ${(y-oy)/(H-h)*100}%`});cd.appendChild(ph);
-        if(C.chk){const c=el('i','chk');Object.assign(c.style,{left:C.chk[0]/w*100+'%',top:C.chk[1]/h*100+'%'});if(C.chkOff)c.style.setProperty('--off',C.chkOff);cd.appendChild(c);}
+        if(C.chk){const c=el('i','chk'),sx=inset?w/(w-12):1,sy=inset?h/(h-12):1,px=w/2+(C.chk[0]+16-w/2)*sx,py=h/2+(C.chk[1]+16-h/2)*sy;Object.assign(c.style,{left:(px-17)/w*100+'%',top:(py-17)/h*100+'%'});if(C.chkOff)c.style.setProperty('--off',C.chkOff);cd.appendChild(c);}
         cd.onclick=toggle;wr.appendChild(cd);d.appendChild(wr);});
     }
     (E.T||[]).forEach(n=>{const im=el('img','ebg');im.src=EIMG[n];im.alt='';pos(n,im);d.appendChild(im);});
@@ -117,6 +117,15 @@ html = html.replace(old, "if(s.layers||ENTER[i]){nodes[i].classList.remove('play
 old = "if(e.target.closest('.hov,.tabhit'))return;"
 assert old in html
 html = html.replace(old, "if(e.target.closest('.hov,.tabhit,.pick'))return;", 1)
+
+old = "@keyframes kGlow{0%{opacity:0;transform:scale(.25)}35%{opacity:1}100%{opacity:1;transform:scale(1)}}"
+assert old in html
+# ST-08 glows: the renders are cut flat at the frame edge, so scaling them shows the cut.
+# Keep them full size and spread them out from the centre with a growing soft radial mask.
+html = html.replace(old, "@keyframes kGlow{0%{opacity:0;-webkit-mask-size:16% 16%;mask-size:16% 16%}35%{opacity:1}"
+    "100%{opacity:1;-webkit-mask-size:320% 320%;mask-size:320% 320%}}"
+    ".lyr.k-glow{-webkit-mask:radial-gradient(closest-side,#000 62%,transparent) center/320% 320% no-repeat;"
+    "mask:radial-gradient(closest-side,#000 62%,transparent) center/320% 320% no-repeat}", 1)
 
 for out in ('LifeLayer_Display_Prototype.html', 'index.html'):
     (ROOT.parent / out).write_text(html)
